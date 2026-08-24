@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#ffffff">
+<title>Gym Log</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --card:#f4f7fc;
+    --card-2:#e8f0fb;
+    --text:#0a0e14;
+    --muted:#51637d;
+    --accent:#2563eb;
+    --accent-dim:#1d4ed8;
+    --danger:#dc2626;
+    --border:#d7e1ef;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #app{
+    max-width:480px; margin:0 auto;
+    min-height:100vh;
+    padding:env(safe-area-inset-top,20px) 18px calc(env(safe-area-inset-bottom,20px) + 18px);
+    display:flex; flex-direction:column;
+  }
+  h1{font-size:1.5rem; margin:.2em 0 0;}
+  h2{font-size:1.1rem; margin:0 0 .3em; color:var(--muted); font-weight:600;}
+  p.sub{color:var(--muted); margin-top:.2em; font-size:.95rem;}
+  .screen{display:none; flex-direction:column; flex:1; gap:16px;}
+  .screen.active{display:flex;}
+  .card{
+    background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius); padding:18px;
+    box-shadow:0 1px 3px rgba(10,14,20,.05);
+  }
+  label{
+    display:block; font-size:.85rem; color:var(--muted);
+    margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:.03em;
+  }
+  input[type=text], input[type=number], select{
+    width:100%; padding:14px 14px; font-size:1.1rem;
+    background:var(--card-2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; margin-bottom:14px; -webkit-appearance:none; appearance:none;
+  }
+  select{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2351637d'><path d='M5.5 7.5l4.5 4.5 4.5-4.5z'/></svg>");
+    background-repeat:no-repeat; background-position:right 14px center; padding-right:38px;
+  }
+  input:focus, select:focus{outline:2px solid var(--accent);}
+  button:disabled{opacity:.4; cursor:not-allowed;}
+  .row{display:flex; gap:12px;}
+  .row > div{flex:1;}
+  button{
+    font-family:inherit; font-size:1.05rem; font-weight:600;
+    padding:15px 16px; border-radius:12px; border:none;
+    cursor:pointer; -webkit-appearance:none;
+  }
+  .btn-primary{background:var(--accent); color:#ffffff;}
+  .btn-primary:active{background:var(--accent-dim); color:#fff;}
+  .btn-secondary{background:var(--card-2); color:var(--text); border:1px solid var(--border);}
+  .btn-secondary:active{background:#d7e6fa;}
+  .btn-danger{background:transparent; color:var(--danger); border:1px solid rgba(220,38,38,.35); padding:8px 12px; font-size:.85rem;}
+  .btn-block{width:100%;}
+  .btn-ghost{background:transparent; color:var(--muted); border:1px solid var(--border);}
+  .stack{display:flex; flex-direction:column; gap:10px;}
+  .set-item, .exercise-item{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--card-2); border-radius:10px; padding:12px 14px;
+  }
+  .set-item .meta, .exercise-item .meta{font-size:.95rem;}
+  .set-item .meta b, .exercise-item .meta b{color:var(--accent);}
+  .exercise-item .meta small, .set-item .meta small{display:block; color:var(--muted); font-size:.8rem; margin-top:2px;}
+  .pill{
+    display:inline-block; background:rgba(37,99,235,.1); color:var(--accent);
+    font-size:.75rem; font-weight:700; padding:3px 9px; border-radius:99px; margin-bottom:8px;
+  }
+  .empty{color:var(--muted); font-size:.9rem; text-align:center; padding:20px 0;}
+  footer.nav{display:flex; gap:12px; margin-top:auto; padding-top:8px;}
+  #summaryBox{
+    background:var(--card-2); border-radius:10px; padding:16px;
+    white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:.9rem; line-height:1.6; max-height:45vh; overflow-y:auto; border:1px solid var(--border);
+  }
+  .toast{
+    position:fixed; left:50%; bottom:30px; transform:translateX(-50%);
+    background:#000; color:#fff; padding:10px 18px; border-radius:99px;
+    font-size:.9rem; opacity:0; pointer-events:none; transition:opacity .25s;
+    z-index:99;
+  }
+  .toast.show{opacity:.95;}
+  .top-actions{display:flex; justify-content:space-between; align-items:center;}
+  a.linklike{color:var(--accent); font-size:.85rem; text-decoration:none; font-weight:600;}
+  .library-item{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--card-2); border-radius:10px; padding:10px 14px;
+  }
+  .library-item span{font-size:1rem;}
+  .quote-card{
+    background:var(--card-2); border-left:4px solid var(--accent);
+    border-radius:10px; padding:14px 16px;
+  }
+  .quote-card p{margin:0; font-style:italic; color:var(--text); font-size:.95rem; line-height:1.5;}
+  .quote-card span{display:block; margin-top:6px; color:var(--muted); font-size:.8rem; font-style:normal; text-align:right;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SCREEN: Home -->
+  <section class="screen active" id="screen-home">
+    <div>
+      <h1>🏋️ Gym Log</h1>
+      <p class="sub">Track weight × reps × sets, exercise by exercise.</p>
+    </div>
+    <div class="quote-card" id="homeQuote"></div>
+    <div class="card" id="resumeCard" style="display:none;">
+      <span class="pill">In progress</span>
+      <p style="margin:.2em 0 12px;">You have a workout already started with <b id="resumeCount">0</b> exercise(s) logged.</p>
+      <div class="stack">
+        <button class="btn-primary btn-block" onclick="resumeWorkout()">Resume Workout</button>
+        <button class="btn-danger" style="width:100%;" onclick="discardWorkout()">Discard & Start New</button>
+      </div>
+    </div>
+    <div class="card" id="startCard">
+      <button class="btn-primary btn-block" onclick="startWorkout()">Start Workout</button>
+    </div>
+    <footer class="nav">
+      <a class="linklike" href="#" onclick="showHistory();return false;">View Past Workouts →</a>
+      <a class="linklike" href="#" onclick="showManage('screen-home');return false;">Manage Exercise List →</a>
+    </footer>
+  </section>
+
+  <!-- SCREEN: New Exercise -->
+  <section class="screen" id="screen-exercise">
+    <div class="top-actions">
+      <div>
+        <h2 style="margin-bottom:0;">Step 1 · Exercise</h2>
+        <p class="sub" id="startedAtLabel" style="margin-top:2px;"></p>
+      </div>
+      <a class="linklike" href="#" onclick="goToSummary();return false;">Finish Workout</a>
+    </div>
+    <div class="card">
+      <div class="top-actions" style="margin-bottom:6px;">
+        <label for="exerciseSelect" style="margin-bottom:0;">What exercise are you doing?</label>
+        <a class="linklike" href="#" onclick="showManage('screen-exercise');return false;">Manage List</a>
+      </div>
+      <select id="exerciseSelect" onchange="onExerciseSelectChange()"></select>
+      <div id="newExerciseWrap" style="display:none;">
+        <label for="newExerciseName">New exercise name</label>
+        <input type="text" id="newExerciseName" placeholder="e.g. Cable Fly" autocomplete="off">
+      </div>
+      <button class="btn-primary btn-block" onclick="confirmExercise()">Next: Log a Set</button>
+    </div>
+    <div class="card" id="currentWorkoutCard">
+      <h2>This Workout So Far</h2>
+      <div class="stack" id="workoutList"><div class="empty">No exercises logged yet.</div></div>
+    </div>
+  </section>
+
+  <!-- SCREEN: Manage Exercise List -->
+  <section class="screen" id="screen-manage">
+    <div class="top-actions">
+      <h1 style="margin-bottom:0;">Exercise List</h1>
+      <a class="linklike" href="#" onclick="closeManage();return false;">Done</a>
+    </div>
+    <div class="card">
+      <label for="manageNewExercise">Add a commonly used exercise</label>
+      <input type="text" id="manageNewExercise" placeholder="e.g. Incline Dumbbell Press" autocomplete="off">
+      <button class="btn-primary btn-block" onclick="handleAddLibraryExercise()">Add to List</button>
+    </div>
+    <div class="card">
+      <h2>Your Exercises</h2>
+      <div class="stack" id="manageList"></div>
+    </div>
+  </section>
+
+  <!-- SCREEN: Log Set -->
+  <section class="screen" id="screen-set">
+    <div class="top-actions">
+      <h2 id="setExerciseTitle">Step 2 · Set</h2>
+      <a class="linklike" href="#" onclick="goToSummary();return false;">Finish Workout</a>
+    </div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="setWeight">Weight (kg)</label>
+          <input type="number" id="setWeight" inputmode="decimal" placeholder="e.g. 60" min="0" step="0.5">
+        </div>
+        <div>
+          <label for="setReps">Reps</label>
+          <input type="number" id="setReps" inputmode="numeric" placeholder="e.g. 8" min="0" step="1">
+        </div>
+      </div>
+      <button class="btn-primary btn-block" onclick="logSet()">Log Set</button>
+      <div style="height:10px;"></div>
+      <button class="btn-secondary btn-block" id="repeatSetBtn" onclick="repeatLastSet()" disabled>🔁 Repeat Last Set</button>
+    </div>
+    <div class="card">
+      <h2>Sets logged for this exercise</h2>
+      <div class="stack" id="setList"><div class="empty">No sets yet.</div></div>
+    </div>
+    <footer class="nav">
+      <button class="btn-secondary" style="flex:1;" onclick="doneWithExercise()">Done with this Exercise →</button>
+    </footer>
+  </section>
+
+  <!-- SCREEN: Next Exercise? -->
+  <section class="screen" id="screen-next">
+    <h2 style="margin-bottom:0;">Nice work 💪</h2>
+    <p class="sub" id="startedAtLabel2" style="margin-top:-10px;"></p>
+    <div class="quote-card" id="nextQuote"></div>
+    <div class="card">
+      <p style="margin-top:0;">Do you want to log another exercise?</p>
+      <div class="stack">
+        <button class="btn-primary btn-block" onclick="addAnotherExercise()">Add Another Exercise</button>
+        <button class="btn-secondary btn-block" onclick="goToSummary()">Finish Workout</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>This Workout So Far</h2>
+      <div class="stack" id="workoutList2"><div class="empty">Nothing yet.</div></div>
+    </div>
+  </section>
+
+  <!-- SCREEN: Summary -->
+  <section class="screen" id="screen-summary">
+    <h1 style="margin-bottom:0;">Workout Summary</h1>
+    <p class="sub" id="summaryDate"></p>
+    <div class="quote-card" id="summaryQuote"></div>
+    <div class="card">
+      <div id="summaryBox"></div>
+    </div>
+    <div class="stack">
+      <button class="btn-primary btn-block" onclick="copySummary()">📋 Copy to Clipboard</button>
+      <div class="row">
+        <button class="btn-secondary" onclick="downloadSummary('txt')">⬇ .txt</button>
+        <button class="btn-secondary" onclick="downloadSummary('md')">⬇ .md</button>
+      </div>
+      <button class="btn-ghost btn-block" onclick="backToHomeAfterFinish()">Save & Start New Workout</button>
+    </div>
+  </section>
+
+  <!-- SCREEN: History -->
+  <section class="screen" id="screen-history">
+    <div class="top-actions">
+      <h1 style="margin-bottom:0;">Past Workouts</h1>
+      <a class="linklike" href="#" onclick="goHome();return false;">Back</a>
+    </div>
+    <div class="stack" id="historyList"><div class="empty">No past workouts yet.</div></div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LS_CURRENT = 'gymlog_current_workout';
+const LS_HISTORY = 'gymlog_history';
+const LS_LIBRARY = 'gymlog_exercise_library';
+const DEFAULT_LIBRARY = [
+  'Bench Press', 'Squat', 'Deadlift', 'Overhead Press', 'Barbell Row',
+  'Pull Up', 'Lat Pulldown', 'Bicep Curl', 'Tricep Pushdown', 'Leg Press'
+];
+const NEW_EXERCISE_VALUE = '__new__';
+
+// Some browsers (notably Safari when a page is opened directly as a local
+// file, or any browser in private/locked-down modes) throw when localStorage
+// is accessed at all. Fall back to an in-memory store so the app still works
+// for the current session instead of silently breaking on every button.
+const memoryStore = {};
+const safeStorage = {
+  getItem(key){
+    try { return localStorage.getItem(key); } catch(e){ return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null; }
+  },
+  setItem(key, value){
+    try { localStorage.setItem(key, value); } catch(e){ memoryStore[key] = value; }
+  },
+  removeItem(key){
+    try { localStorage.removeItem(key); } catch(e){ delete memoryStore[key]; }
+  }
+};
+
+let workout = null;      // { startedAt, exercises: [ {name, sets:[{weight,reps}]} ] }
+let activeExercise = null; // {name, sets:[]} currently being logged (not yet pushed, or reference into workout.exercises)
+
+function loadCurrent(){
+  const raw = safeStorage.getItem(LS_CURRENT);
+  return raw ? JSON.parse(raw) : null;
+}
+function saveCurrent(){
+  safeStorage.setItem(LS_CURRENT, JSON.stringify(workout));
+}
+function clearCurrent(){
+  safeStorage.removeItem(LS_CURRENT);
+}
+function getHistory(){
+  const raw = safeStorage.getItem(LS_HISTORY);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveHistory(list){
+  safeStorage.setItem(LS_HISTORY, JSON.stringify(list));
+}
+function getLibrary(){
+  const raw = safeStorage.getItem(LS_LIBRARY);
+  if(raw === null){
+    safeStorage.setItem(LS_LIBRARY, JSON.stringify(DEFAULT_LIBRARY));
+    return DEFAULT_LIBRARY.slice();
+  }
+  return JSON.parse(raw);
+}
+function saveLibrary(list){
+  safeStorage.setItem(LS_LIBRARY, JSON.stringify(list));
+}
+function addLibraryExercise(name){
+  const list = getLibrary();
+  const exists = list.some(n => n.toLowerCase() === name.toLowerCase());
+  if(!exists){
+    list.push(name);
+    list.sort((a,b)=>a.localeCompare(b));
+    saveLibrary(list);
+  }
+  return getLibrary();
+}
+function removeLibraryExercise(name){
+  const list = getLibrary().filter(n => n !== name);
+  saveLibrary(list);
+  return list;
+}
+function populateExerciseSelect(){
+  const sel = document.getElementById('exerciseSelect');
+  sel.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Select an exercise…';
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  sel.appendChild(placeholder);
+  getLibrary().forEach(name=>{
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+  const newOpt = document.createElement('option');
+  newOpt.value = NEW_EXERCISE_VALUE;
+  newOpt.textContent = '+ Add New Exercise…';
+  sel.appendChild(newOpt);
+  document.getElementById('newExerciseWrap').style.display = 'none';
+  document.getElementById('newExerciseName').value = '';
+}
+function onExerciseSelectChange(){
+  const sel = document.getElementById('exerciseSelect');
+  const wrap = document.getElementById('newExerciseWrap');
+  if(sel.value === NEW_EXERCISE_VALUE){
+    wrap.style.display = 'block';
+    setTimeout(()=>document.getElementById('newExerciseName').focus(), 50);
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+// ---------- MANAGE EXERCISE LIST ----------
+let manageReturnScreen = 'screen-home';
+function showManage(returnTo){
+  manageReturnScreen = returnTo || 'screen-home';
+  document.getElementById('manageNewExercise').value = '';
+  renderManageList();
+  showScreen('screen-manage');
+}
+function closeManage(){
+  if(manageReturnScreen === 'screen-exercise'){
+    populateExerciseSelect();
+  }
+  showScreen(manageReturnScreen);
+}
+function renderManageList(){
+  const el = document.getElementById('manageList');
+  const list = getLibrary();
+  if(!list.length){
+    el.innerHTML = '<div class="empty">No exercises in your list yet.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  list.forEach(name=>{
+    const div = document.createElement('div');
+    div.className = 'library-item';
+    div.innerHTML = `<span>${escapeHtml(name)}</span>`;
+    const btn = document.createElement('button');
+    btn.className = 'btn-danger';
+    btn.textContent = 'Remove';
+    btn.onclick = ()=>{ removeLibraryExercise(name); renderManageList(); };
+    div.appendChild(btn);
+    el.appendChild(div);
+  });
+}
+function handleAddLibraryExercise(){
+  const input = document.getElementById('manageNewExercise');
+  const name = input.value.trim();
+  if(!name){ toast('Enter an exercise name'); input.focus(); return; }
+  addLibraryExercise(name);
+  input.value = '';
+  renderManageList();
+  toast('Added to list');
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+// ---------- MOTIVATIONAL QUOTES ----------
+const QUOTES = [
+  { text: "The only bad workout is the one that didn't happen.", author: null },
+  { text: "Push yourself, because no one else is going to do it for you.", author: null },
+  { text: "Strength does not come from the body. It comes from the will.", author: "Mahatma Gandhi" },
+  { text: "The body achieves what the mind believes.", author: null },
+  { text: "You don't have to be extreme, just consistent.", author: null },
+  { text: "It never gets easier, you just get stronger.", author: null },
+  { text: "Discipline is choosing between what you want now and what you want most.", author: null },
+  { text: "One more rep than yesterday.", author: null },
+  { text: "Nobody who ever gave his best regretted it.", author: "George Halas" },
+  { text: "The only place where success comes before work is in the dictionary.", author: "Vidal Sassoon" },
+  { text: "If it doesn't challenge you, it doesn't change you.", author: "Fred DeVito" },
+  { text: "A one-hour workout is 4% of your day. No excuses.", author: null },
+  { text: "Someone busier than you is working out right now.", author: null },
+  { text: "The difference between try and triumph is a little umph.", author: "Marvin Phillips" },
+  { text: "Sore today, strong tomorrow.", author: null },
+  { text: "Your body can stand almost anything. It's your mind you have to convince.", author: null },
+  { text: "Don't count the reps, make the reps count.", author: null },
+  { text: "Champions keep playing until they get it right.", author: "Billie Jean King" },
+  { text: "What seems impossible today will one day become your warm-up.", author: null },
+  { text: "Every workout is progress, no matter how small.", author: null },
+  { text: "Winners are not people who never fail, but people who never quit.", author: null },
+  { text: "You are stronger than you think.", author: null },
+  { text: "The last three or four reps is what makes the muscle grow.", author: "Arnold Schwarzenegger" },
+  { text: "Motivation is what gets you started. Habit is what keeps you going.", author: "Jim Ryun" }
+];
+function renderQuote(elId){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+  el.innerHTML = `<p>"${escapeHtml(q.text)}"</p>` + (q.author ? `<span>— ${escapeHtml(q.author)}</span>` : '');
+}
+
+function formatTime(iso){
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function formatDuration(ms){
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if(h > 0) return `${h}h ${m}m`;
+  if(m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+function updateStartedAtLabels(){
+  if(!workout) return;
+  const label = `Started at ${formatTime(workout.startedAt)}`;
+  const el1 = document.getElementById('startedAtLabel');
+  const el2 = document.getElementById('startedAtLabel2');
+  if(el1) el1.textContent = label;
+  if(el2) el2.textContent = label;
+}
+
+// ---------- HOME ----------
+function initHome(){
+  const existing = loadCurrent();
+  const resumeCard = document.getElementById('resumeCard');
+  if(existing && existing.exercises && existing.exercises.length){
+    resumeCard.style.display = 'block';
+    document.getElementById('resumeCount').textContent = existing.exercises.length;
+  } else {
+    resumeCard.style.display = 'none';
+  }
+  renderQuote('homeQuote');
+}
+function goHome(){
+  initHome();
+  showScreen('screen-home');
+}
+function startWorkout(){
+  workout = { startedAt: new Date().toISOString(), exercises: [] };
+  saveCurrent();
+  populateExerciseSelect();
+  updateStartedAtLabels();
+  showScreen('screen-exercise');
+}
+function resumeWorkout(){
+  workout = loadCurrent();
+  populateExerciseSelect();
+  renderWorkoutList('workoutList');
+  updateStartedAtLabels();
+  showScreen('screen-exercise');
+}
+function discardWorkout(){
+  clearCurrent();
+  workout = null;
+  initHome();
+}
+
+// ---------- EXERCISE STEP ----------
+function confirmExercise(){
+  const sel = document.getElementById('exerciseSelect');
+  let name;
+  if(sel.value === NEW_EXERCISE_VALUE){
+    const newInput = document.getElementById('newExerciseName');
+    name = newInput.value.trim();
+    if(!name){ toast('Enter an exercise name'); newInput.focus(); return; }
+    addLibraryExercise(name);
+  } else {
+    name = sel.value;
+    if(!name){ toast('Choose an exercise'); return; }
+  }
+  activeExercise = { name, sets: [] };
+  document.getElementById('setExerciseTitle').textContent = 'Step 2 · ' + name;
+  document.getElementById('setWeight').value = '';
+  document.getElementById('setReps').value = '';
+  renderSetList();
+  showScreen('screen-set');
+  setTimeout(()=>document.getElementById('setWeight').focus(), 100);
+}
+
+function renderWorkoutList(targetId){
+  const el = document.getElementById(targetId);
+  if(!workout || !workout.exercises.length){
+    el.innerHTML = '<div class="empty">No exercises logged yet.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  workout.exercises.forEach((ex, idx)=>{
+    const div = document.createElement('div');
+    div.className = 'exercise-item';
+    div.innerHTML = `<div class="meta"><b>${escapeHtml(ex.name)}</b><small>${summarizeSets(ex.sets)}</small></div>`;
+    el.appendChild(div);
+  });
+}
+
+// ---------- SET STEP ----------
+function renderSetList(){
+  const el = document.getElementById('setList');
+  document.getElementById('repeatSetBtn').disabled = !activeExercise.sets.length;
+  if(!activeExercise.sets.length){
+    el.innerHTML = '<div class="empty">No sets yet.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  activeExercise.sets.forEach((s, i)=>{
+    const div = document.createElement('div');
+    div.className = 'set-item';
+    div.innerHTML = `<div class="meta">Set ${i+1}: <b>${s.weight}kg</b> × ${s.reps} reps</div>
+      <button class="btn-danger" onclick="removeSet(${i})">Remove</button>`;
+    el.appendChild(div);
+  });
+}
+function removeSet(i){
+  activeExercise.sets.splice(i,1);
+  renderSetList();
+}
+function logSet(){
+  const w = document.getElementById('setWeight').value;
+  const r = document.getElementById('setReps').value;
+  if(w === '' || r === ''){ toast('Enter weight and reps'); return; }
+  activeExercise.sets.push({ weight: parseFloat(w), reps: parseInt(r,10) });
+  document.getElementById('setWeight').value = '';
+  document.getElementById('setReps').value = '';
+  renderSetList();
+  toast('Set logged');
+  document.getElementById('setWeight').focus();
+}
+function repeatLastSet(){
+  if(!activeExercise.sets.length){
+    toast('No previous set to repeat yet');
+    return;
+  }
+  const last = activeExercise.sets[activeExercise.sets.length - 1];
+  activeExercise.sets.push({ weight: last.weight, reps: last.reps });
+  renderSetList();
+  toast('Set repeated');
+}
+function doneWithExercise(){
+  if(!activeExercise.sets.length){
+    toast('Log at least one set first');
+    return;
+  }
+  workout.exercises.push(activeExercise);
+  saveCurrent();
+  activeExercise = null;
+  renderWorkoutList('workoutList2');
+  updateStartedAtLabels();
+  renderQuote('nextQuote');
+  showScreen('screen-next');
+}
+function addAnotherExercise(){
+  populateExerciseSelect();
+  renderWorkoutList('workoutList');
+  updateStartedAtLabels();
+  showScreen('screen-exercise');
+}
+
+// ---------- SUMMARY ----------
+function summarizeSets(sets){
+  if(!sets.length) return '';
+  // run-length encode consecutive identical (weight, reps) sets
+  const groups = [];
+  sets.forEach(s=>{
+    const last = groups[groups.length-1];
+    if(last && last.weight === s.weight && last.reps === s.reps){
+      last.count++;
+    } else {
+      groups.push({ weight: s.weight, reps: s.reps, count: 1 });
+    }
+  });
+  return groups.map(g=>{
+    const setWord = g.count === 1 ? 'set' : 'sets';
+    return `${g.weight}kg × ${g.reps} reps × ${g.count} ${setWord}`;
+  }).join(', ');
+}
+function buildSummaryText(){
+  const w = workout;
+  const dateStr = new Date(w.startedAt).toLocaleString();
+  let lines = [`Workout — ${dateStr}`];
+  if(w.finishedAt){
+    lines.push(`Duration: ${formatDuration(new Date(w.finishedAt) - new Date(w.startedAt))}`);
+  }
+  lines.push('');
+  w.exercises.forEach(ex=>{
+    lines.push(`- ${ex.name}: ${summarizeSets(ex.sets)}`);
+  });
+  return lines.join('\n');
+}
+function goToSummary(){
+  if(activeExercise && activeExercise.sets.length){
+    workout.exercises.push(activeExercise);
+    activeExercise = null;
+    saveCurrent();
+  }
+  if(!workout || !workout.exercises.length){
+    toast('Nothing logged yet');
+    showScreen('screen-exercise');
+    return;
+  }
+  workout.finishedAt = new Date().toISOString();
+  document.getElementById('summaryDate').textContent =
+    `Started ${formatTime(workout.startedAt)} · Finished ${formatTime(workout.finishedAt)} · Duration ${formatDuration(new Date(workout.finishedAt) - new Date(workout.startedAt))}`;
+  document.getElementById('summaryBox').textContent = buildSummaryText();
+  renderQuote('summaryQuote');
+  showScreen('screen-summary');
+}
+function copySummary(){
+  const text = buildSummaryText();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>toast('Copied to clipboard')).catch(()=>fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); toast('Copied to clipboard'); }
+  catch(e){ toast('Copy failed — select text manually'); }
+  document.body.removeChild(ta);
+}
+function downloadSummary(ext){
+  const text = buildSummaryText();
+  const blob = new Blob([text], { type: ext === 'md' ? 'text/markdown' : 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateSlug = new Date(workout.startedAt).toISOString().slice(0,10);
+  a.href = url;
+  a.download = `workout-${dateSlug}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Downloaded');
+}
+function backToHomeAfterFinish(){
+  const history = getHistory();
+  history.unshift(workout);
+  saveHistory(history.slice(0, 50));
+  clearCurrent();
+  workout = null;
+  goHome();
+}
+
+// ---------- HISTORY ----------
+function showHistory(){
+  const el = document.getElementById('historyList');
+  const history = getHistory();
+  if(!history.length){
+    el.innerHTML = '<div class="empty">No past workouts yet.</div>';
+  } else {
+    el.innerHTML = '';
+    history.forEach(w=>{
+      const card = document.createElement('div');
+      card.className = 'card';
+      const dateStr = new Date(w.startedAt).toLocaleString();
+      let body = `<h2 style="color:var(--text);">${dateStr}</h2>`;
+      w.exercises.forEach(ex=>{
+        body += `<div class="set-item" style="margin-bottom:8px;"><div class="meta"><b>${escapeHtml(ex.name)}</b><small>${summarizeSets(ex.sets)}</small></div></div>`;
+      });
+      card.innerHTML = body;
+      el.appendChild(card);
+    });
+  }
+  showScreen('screen-history');
+}
+
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// init
+initHome();
+</script>
+</body>
+</html>
