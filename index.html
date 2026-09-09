@@ -59,6 +59,15 @@
   }
   input:focus, select:focus{outline:2px solid var(--accent);}
   button:disabled{opacity:.4; cursor:not-allowed;}
+  .started-at{cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px;}
+  .time-edit{display:none; gap:8px; align-items:center; margin-top:8px;}
+  .time-edit.open{display:flex;}
+  input[type=time]{
+    padding:10px 12px; font-size:1rem; width:auto;
+    background:var(--card-2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; -webkit-appearance:none;
+  }
+  .time-edit button{padding:9px 14px; font-size:.85rem;}
   .row{display:flex; gap:12px;}
   .row > div{flex:1;}
   button{
@@ -135,9 +144,10 @@
     <div class="card" id="startCard">
       <button class="btn-primary btn-block" onclick="startWorkout()">Start Workout</button>
     </div>
-    <footer class="nav">
+    <footer class="nav" style="flex-wrap:wrap;">
       <a class="linklike" href="#" onclick="showHistory();return false;">View Past Workouts →</a>
       <a class="linklike" href="#" onclick="showManage('screen-home');return false;">Manage Exercise List →</a>
+      <a class="linklike" href="#" onclick="showRecords();return false;">🏆 Personal Records →</a>
     </footer>
   </section>
 
@@ -146,7 +156,12 @@
     <div class="top-actions">
       <div>
         <h2 style="margin-bottom:0;">Step 1 · Exercise</h2>
-        <p class="sub" id="startedAtLabel" style="margin-top:2px;"></p>
+        <p class="sub started-at" id="startedAtLabel" onclick="openStartTimeEditor(1)"></p>
+        <div class="time-edit" id="startTimeEdit1">
+          <input type="time" id="startTimeInput1">
+          <button class="btn-primary" onclick="saveStartTime(1)">Save</button>
+          <button class="btn-secondary" onclick="closeStartTimeEditor(1)">Cancel</button>
+        </div>
       </div>
       <a class="linklike" href="#" onclick="goToSummary();return false;">Finish Workout</a>
     </div>
@@ -188,7 +203,10 @@
   <!-- SCREEN: Log Set -->
   <section class="screen" id="screen-set">
     <div class="top-actions">
-      <h2 id="setExerciseTitle">Step 2 · Set</h2>
+      <div>
+        <h2 id="setExerciseTitle" style="margin-bottom:0;">Step 2 · Set</h2>
+        <p class="sub" id="bestForExercise" style="margin-top:2px;"></p>
+      </div>
       <a class="linklike" href="#" onclick="goToSummary();return false;">Finish Workout</a>
     </div>
     <div class="card">
@@ -218,7 +236,12 @@
   <!-- SCREEN: Next Exercise? -->
   <section class="screen" id="screen-next">
     <h2 style="margin-bottom:0;">Nice work 💪</h2>
-    <p class="sub" id="startedAtLabel2" style="margin-top:-10px;"></p>
+    <p class="sub started-at" id="startedAtLabel2" style="margin-top:-10px;" onclick="openStartTimeEditor(2)"></p>
+    <div class="time-edit" id="startTimeEdit2" style="margin-top:-4px;">
+      <input type="time" id="startTimeInput2">
+      <button class="btn-primary" onclick="saveStartTime(2)">Save</button>
+      <button class="btn-secondary" onclick="closeStartTimeEditor(2)">Cancel</button>
+    </div>
     <div class="quote-card" id="nextQuote"></div>
     <div class="card">
       <p style="margin-top:0;">Do you want to log another exercise?</p>
@@ -258,6 +281,16 @@
       <a class="linklike" href="#" onclick="goHome();return false;">Back</a>
     </div>
     <div class="stack" id="historyList"><div class="empty">No past workouts yet.</div></div>
+  </section>
+
+  <!-- SCREEN: Personal Records -->
+  <section class="screen" id="screen-records">
+    <div class="top-actions">
+      <h1 style="margin-bottom:0;">🏆 Personal Records</h1>
+      <a class="linklike" href="#" onclick="goHome();return false;">Back</a>
+    </div>
+    <p class="sub" style="margin-top:-8px;">Your highest weight ever logged for each exercise.</p>
+    <div class="stack" id="recordsList"><div class="empty">No sets logged yet.</div></div>
   </section>
 
 </div>
@@ -474,11 +507,37 @@ function formatDuration(ms){
 }
 function updateStartedAtLabels(){
   if(!workout) return;
-  const label = `Started at ${formatTime(workout.startedAt)}`;
+  const label = `Started at ${formatTime(workout.startedAt)} ✏️`;
   const el1 = document.getElementById('startedAtLabel');
   const el2 = document.getElementById('startedAtLabel2');
   if(el1) el1.textContent = label;
   if(el2) el2.textContent = label;
+}
+
+// ---------- EDIT START TIME ----------
+function openStartTimeEditor(which){
+  if(!workout) return;
+  const d = new Date(workout.startedAt);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  document.getElementById(`startTimeInput${which}`).value = `${hh}:${mm}`;
+  document.getElementById(`startTimeEdit${which}`).classList.add('open');
+}
+function closeStartTimeEditor(which){
+  document.getElementById(`startTimeEdit${which}`).classList.remove('open');
+}
+function saveStartTime(which){
+  const val = document.getElementById(`startTimeInput${which}`).value;
+  if(!val){ toast('Enter a valid time'); return; }
+  const [h, m] = val.split(':').map(Number);
+  const d = new Date(workout.startedAt);
+  d.setHours(h, m, 0, 0);
+  workout.startedAt = d.toISOString();
+  saveCurrent();
+  updateStartedAtLabels();
+  document.getElementById('startTimeEdit1').classList.remove('open');
+  document.getElementById('startTimeEdit2').classList.remove('open');
+  toast('Start time updated');
 }
 
 // ---------- HOME ----------
@@ -535,6 +594,7 @@ function confirmExercise(){
   document.getElementById('setWeight').value = '';
   document.getElementById('setReps').value = '';
   renderSetList();
+  updateBestForExerciseLabel();
   showScreen('screen-set');
   setTimeout(()=>document.getElementById('setWeight').focus(), 100);
 }
@@ -579,11 +639,15 @@ function logSet(){
   const w = document.getElementById('setWeight').value;
   const r = document.getElementById('setReps').value;
   if(w === '' || r === ''){ toast('Enter weight and reps'); return; }
-  activeExercise.sets.push({ weight: parseFloat(w), reps: parseInt(r,10) });
+  const prevBest = getBestFor(activeExercise.name);
+  const newSet = { weight: parseFloat(w), reps: parseInt(r,10) };
+  activeExercise.sets.push(newSet);
   document.getElementById('setWeight').value = '';
   document.getElementById('setReps').value = '';
   renderSetList();
-  toast('Set logged');
+  const isNewPR = !!prevBest && isBetter(newSet, prevBest);
+  updateBestForExerciseLabel(isNewPR);
+  toast(isNewPR ? 'New personal record! 🎉' : 'Set logged');
   document.getElementById('setWeight').focus();
 }
 function repeatLastSet(){
@@ -728,6 +792,75 @@ function showHistory(){
     });
   }
   showScreen('screen-history');
+}
+
+// ---------- PERSONAL RECORDS ----------
+function collectAllSets(){
+  // Every set ever logged: finished workouts in history, the in-progress
+  // workout's completed exercises, and whatever's being logged right now.
+  const rows = [];
+  getHistory().forEach(w=>{
+    w.exercises.forEach(ex=> ex.sets.forEach(s=> rows.push({ name: ex.name, weight: s.weight, reps: s.reps })));
+  });
+  if(workout){
+    workout.exercises.forEach(ex=> ex.sets.forEach(s=> rows.push({ name: ex.name, weight: s.weight, reps: s.reps })));
+  }
+  if(activeExercise){
+    activeExercise.sets.forEach(s=> rows.push({ name: activeExercise.name, weight: s.weight, reps: s.reps }));
+  }
+  return rows;
+}
+function isBetter(a, b){
+  // Is set `a` a better lift than best-so-far `b`? Higher weight wins; at
+  // equal weight, higher reps wins.
+  if(!b) return true;
+  if(a.weight !== b.weight) return a.weight > b.weight;
+  return a.reps > b.reps;
+}
+function getBestFor(name){
+  if(!name) return null;
+  const key = name.toLowerCase();
+  let best = null;
+  collectAllSets().filter(r=> r.name.toLowerCase() === key).forEach(r=>{
+    if(isBetter(r, best)) best = r;
+  });
+  return best;
+}
+function getAllPRs(){
+  const bestByKey = {};
+  collectAllSets().forEach(r=>{
+    const key = r.name.toLowerCase();
+    if(isBetter(r, bestByKey[key])) bestByKey[key] = { name: r.name, weight: r.weight, reps: r.reps };
+  });
+  return Object.values(bestByKey).sort((a,b)=> a.name.localeCompare(b.name));
+}
+function showRecords(){
+  const el = document.getElementById('recordsList');
+  const prs = getAllPRs();
+  if(!prs.length){
+    el.innerHTML = '<div class="empty">No sets logged yet.</div>';
+  } else {
+    el.innerHTML = '';
+    prs.forEach(pr=>{
+      const div = document.createElement('div');
+      div.className = 'exercise-item';
+      div.innerHTML = `<div class="meta"><b>${escapeHtml(pr.name)}</b><small>Best: ${pr.weight}kg × ${pr.reps} reps</small></div>`;
+      el.appendChild(div);
+    });
+  }
+  showScreen('screen-records');
+}
+function updateBestForExerciseLabel(newPR){
+  const el = document.getElementById('bestForExercise');
+  if(!el || !activeExercise) return;
+  const best = getBestFor(activeExercise.name);
+  if(!best){
+    el.textContent = 'No previous record for this exercise yet';
+  } else if(newPR){
+    el.textContent = `🎉 New personal best: ${best.weight}kg × ${best.reps} reps!`;
+  } else {
+    el.textContent = `Personal best: ${best.weight}kg × ${best.reps} reps`;
+  }
 }
 
 function escapeHtml(s){
